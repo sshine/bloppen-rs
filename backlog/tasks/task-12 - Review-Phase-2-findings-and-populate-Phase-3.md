@@ -1,11 +1,11 @@
 ---
 id: TASK-12
 title: Review Phase 2 findings and populate Phase 3
-status: In Progress
+status: Done
 assignee:
   - '@sshine'
 created_date: '2026-11-06T18:39:00Z'
-updated_date: '2026-11-06T18:51:00Z'
+updated_date: '2026-11-06T20:09:00Z'
 labels: []
 dependencies:
   - TASK-6
@@ -27,9 +27,9 @@ Phase 2 produces several analysis documents, and the next phase depends on what 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 All Phase 2 analysis documents are reviewed together for contradictions or gaps
-- [ ] #2 Any tangent discovered during Phase 2 has a backlog task
-- [ ] #3 Phase 3 tasks are populated only after the user confirms advancing past the gate
+- [x] #1 All Phase 2 analysis documents are reviewed together for contradictions or gaps
+- [x] #2 Any tangent discovered during Phase 2 has a backlog task
+- [x] #3 Phase 3 tasks are populated only after the user confirms advancing past the gate
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -40,6 +40,12 @@ Phase 2 produces several analysis documents, and the next phase depends on what 
 3. After explicit confirmation, create Phase 3 tasks for architecture, API surface, auth/session, data models, domain concepts, and security controls.
 4. Mark this task Done only when those tasks exist.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Phase 3 tasks TASK-13..TASK-18 were created after the user said go ahead and confirmed username/password + VMCMS cookie as the intended auth path. TASK-4 still covers the optional 1.0.9 build; no other Phase 2 tangent needed a task.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
@@ -53,3 +59,9 @@ Gate review complete. Phase 2 documents agree: native Android (4 DEX, 45.1 MiB),
 
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Completed the Phase 2 gate: the four analysis documents were reviewed for consistency, the user confirmed advancing, and six Phase 3 tasks were populated for architecture, API surface, auth, data models, domain flows, and security.
+<!-- SECTION:FINAL_SUMMARY:END -->
