@@ -17,6 +17,9 @@
           # Backlog.md owns the generated block at the top and writes raw HTML
           # tags, which mdformat escapes into non-instructions.
           "AGENTS.md"
+          # Backlog.md owns task, draft, document, and decision files; the CLI
+          # is responsible for their layout.
+          "backlog/**"
           "apk/**"
           "secrets/**"
           "re/decompiled/**"
