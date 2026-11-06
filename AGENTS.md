@@ -99,6 +99,11 @@ just lint                # workspace clippy
 just secrets-check       # report missing keyring secrets
 just secrets-set         # prompt for BORNELOPPEN_EMAIL/PASSWORD
 just probe               # live probe with secretspec-injected credentials
+just cli auth status     # CLI with secretspec-injected credentials
+just showcase            # read-only CLI smoke test against the live site
+just mcp-tools           # print the MCP tool schemas
+just mcp --check         # sign in and exit without serving
+just live-test           # real-site API tests, one at a time
 just apk-info            # package/version/SDKs from the extracted base APK
 just backlog task list   # task source of truth
 ```

@@ -1,7 +1,7 @@
 # PRD: Børneloppen Android app → Rust client
 
-**Status:** Phase 4 live validation complete for login, token, and pages; logout and the Phase 5 gate pending
-**Last updated:** 2026-11-06
+**Status:** Phase 5/6 complete: API library, CLI, and read-only MCP server delivered; Phase 7+ pending
+**Last updated:** 2026-11-07
 
 ## 1. Summary
 
@@ -204,6 +204,31 @@ Flutter/React Native/Xamarin payload.
 - **Logout was not exercised** to avoid invalidating the developer's other
   sessions. It remains TASK-25.
 
+## 6.5 Phase 5/6 delivery (2026-11-07)
+
+- **`bloppen-api`**: async client with `Client`/`ClientBuilder`, redacted
+  `Credentials`/`Secret`, password login, token login, public product search,
+  same-origin HTML page access, typed errors, and a persistent session file
+  written atomically with mode `0600`.
+- **Session robustness**: the client reads `vmcms` expiry from `Expires` or
+  `Max-Age`, reauthenticates five minutes early, starts a fresh cookie jar on
+  each login, treats a login redirect or `status:"error"` as `AuthExpired`,
+  reauthenticates once and retries, falls back to the login token, and clears
+  local state on logout. See `re/analysis/15-session-robustness.md`.
+- **`bloppen-cli`**: `auth login/status/logout/token`, `search`, and `page`,
+  with human and `--json` output, environment-only credentials, and an XDG
+  session file.
+- **`bloppen-mcp`**: read-only stdio server serving
+  `bloppen_session_status`, `bloppen_search_products`, and
+  `bloppen_fetch_page`, with structured results, output limits,
+  `--list-tools`, and `--check`.
+- **Tests**: unit tests, wiremock integration tests for login/reauth/search/
+  pages/session persistence, MCP surface/read-tool/transport tests, CLI live
+  checks, and an ignored live suite run through secretspec. `just ci` passes,
+  including `cargo package` for every member.
+- **Live results**: sign-in, token, search (2,413 Lego results across 25
+  pages), home page (207,624 bytes), token re-entry, and logout all pass.
+
 ## 7. Deliverables
 
 - `re/` analysis: file census, manifest, architecture, endpoint catalogue,
@@ -262,3 +287,5 @@ Flutter/React Native/Xamarin payload.
 | 2026-11-06 | Use secretspec with the keyring provider for live credentials | Matches `nemlig-rs`; keeps the account password out of files, chat, and argv |
 | 2026-11-06 | Keep the whole cookie jar; `vmcms` is stable, not rotated at login | Live validation showed login state comes from additional cookies and server-side session state |
 | 2026-11-06 | Use `searches/search.json` for product search; HTML/AJAX for account pages | It is public, JSON, and already returns the product fields the CLI needs |
+| 2026-11-07 | Reauthenticate with a fresh cookie jar, not by extending the old one | Login does not refresh `vmcms`; a new login gets a new seven-day cookie |
+| 2026-11-07 | Keep the MCP server read-only in the first delivery | No write domain has been validated yet; search and page reads are useful on their own |

@@ -1,0 +1,48 @@
+[package]
+name = "bloppen-api"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Børneloppen.dk API client library"
+readme = "../../README.md"
+keywords = ["boerneloppen", "api-client", "denmark", "flea-market"]
+categories = ["api-bindings", "web-programming::http-client"]
+
+[lints]
+workspace = true
+
+[features]
+default = ["rustls"]
+# TLS via rustls. Disable to supply your own reqwest::Client through
+# ClientBuilder::http_client, which is also how to get native-tls or a proxy.
+rustls = ["reqwest/rustls"]
+
+[dependencies]
+chrono = { workspace = true, features = ["clock", "serde", "std"] }
+cookie = { workspace = true }
+cookie_store = { workspace = true, features = ["serde_json"] }
+reqwest = { workspace = true, features = [
+  "charset",
+  "cookies",
+  "form",
+  "http2",
+  "json",
+] }
+reqwest_cookie_store = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync", "time"] }
+tracing = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = [
+  "macros",
+  "rt-multi-thread",
+  "test-util",
+] }
+wiremock = { workspace = true }

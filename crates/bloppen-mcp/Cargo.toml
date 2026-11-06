@@ -1,0 +1,33 @@
+[package]
+name = "bloppen-mcp"
+version.workspace = true
+edition.workspace = true
+# rmcp needs a newer floor than the library; keep the library's floor at 1.85.
+rust-version = "1.88"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "MCP server for the Børneloppen.dk site and mobile API"
+keywords = ["boerneloppen", "mcp", "denmark", "flea-market"]
+categories = ["command-line-utilities"]
+
+[lints]
+workspace = true
+
+[dependencies]
+bloppen-api = { workspace = true }
+clap = { workspace = true, features = ["derive", "env", "wrap_help"] }
+directories = { workspace = true }
+rmcp = { workspace = true, features = ["transport-io"] }
+schemars = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+[dev-dependencies]
+rmcp = { workspace = true, features = ["client"] }
+tokio = { workspace = true, features = ["io-util", "test-util"] }
+wiremock = { workspace = true }
