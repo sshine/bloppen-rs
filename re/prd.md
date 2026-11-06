@@ -1,6 +1,6 @@
 # PRD: Børneloppen Android app → Rust client
 
-**Status:** Phase 1 complete; Phase 2 not started
+**Status:** Phase 2 complete; Phase 3 gate awaiting user confirmation
 **Last updated:** 2026-11-06
 
 ## 1. Summary
@@ -93,6 +93,34 @@ Flutter/React Native/Xamarin payload.
   be regenerated; only the PRD, analysis notes, scripts, and source are tracked.
 - **One task per agent, sequentially.** Tangents become new backlog tasks.
 
+## 6.1 Phase 2 results (2026-11-06)
+
+- **Native Android app**: 855 entries, four DEX files (45.1 MiB
+  uncompressed), no native libraries, no managed assemblies, and no
+  Flutter/React Native/Xamarin/Capacitor/Cordova markers.
+- **No strong obfuscation**: 0.44% of DEX type descriptors have 1-2 character
+  class names and there is no `mapping.txt`. Descriptor evidence shows
+  Retrofit2, OkHttp, Okio, Coil, Timber, Kotlin coroutines, and Jetpack Compose.
+- **Manifest**: `BoerneloppenApp` is the application class and `MainActivity`
+  is the only app activity. Facebook Login callbacks are the only deep links.
+  `BoerneloppenFirebaseMessagingService` is the only custom service. A
+  `FileProvider` is configured but not exported.
+- **Network security**: `usesCleartextTraffic=true` and
+  `base-config cleartextTrafficPermitted=true` apply to every domain. Trust
+  anchors are the bundled ISRG roots plus the system store; there is no
+  pinning. Phase 3/4 must determine whether the real API is HTTP or HTTPS and
+  whether tokens ever travel cleartext.
+- **Decompilation**: jadx 1.5.6 produced 19,734 Java files in 51 s. It reported
+  228 partial errors, but only three app-package files are affected
+  (`HomeScreenKt`, `MainScreenKt`, `MenuItemScreenKt`, all Compose).
+  apktool 3.0.3 produced 30,749 smali files plus resources in 11 s.
+- **Phase 3 leads**: `BoerneloppenAPI`, `BoerneloppenAPIImpl`,
+  `RetrofitBoerneloppenApi`, the API interceptors, `LoginTokenModel`,
+  `VmcmsCookieUseCase`, `RequestLoginTokenUseCase`, and
+  `GetLoginStatusUseCase`.
+- **Language**: the API client and CLI will be Rust (`bloppen-api` and
+  `bloppen-cli`).
+
 ## 7. Deliverables
 
 - `re/` analysis: file census, manifest, architecture, endpoint catalogue,
@@ -143,3 +171,4 @@ Flutter/React Native/Xamarin payload.
 | 2026-11-06 | Target `dk.boerneloppen.boerneloppen`, not the Swedish package | Working directory is `bloppen`; user is in Denmark |
 | 2026-11-06 | Proceed with 1.0.4 | 1.0.9 is not available from any accessible mirror; requires an AAS token |
 | 2026-11-06 | Use a dendritic flake instead of `shell.nix` | Mimics `~/Projects/nursery/mxroute-rs`; keeps each tool group independent |
+| 2026-11-06 | Confirm Rust for the API client and CLI | User confirmed; the milestones target `bloppen-api` and `bloppen-cli` |

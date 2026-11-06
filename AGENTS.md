@@ -100,7 +100,7 @@ just backlog task list   # task source of truth
 The workflow is the nine-phase loop in the `android-app-reverser` skill:
 
 1. Project setup (complete)
-2. Extract and decompile
+2. Extract and decompile (complete)
 3. Static analysis
 4. Live API validation
 5. Rust library
