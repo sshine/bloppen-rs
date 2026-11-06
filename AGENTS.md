@@ -63,9 +63,12 @@ or milestone markdown by hand; use the wrapper so metadata stays consistent.
 5. **Never commit the APK, extracted splits, decompiled output, network
    captures, or secrets.** They are covered by `.gitignore`; do not defeat it
    with `git add -f`.
-6. **Tokens, PII, and credentials go in `secrets/`** (gitignored). Captured
-   API responses often contain personal data: anonymise before quoting them in
-   tracked notes.
+6. **Tokens, PII, and credentials go in `secrets/`** (gitignored). Live account
+   credentials are different: they are stored in the developer's secretspec
+   provider (the keyring by default) and injected into the probe by
+   `secretspec run`. Never paste them into chat, a tracked file, an `.env`
+   file, or a command line. Captured API responses often contain personal
+   data: anonymise before quoting them in tracked notes.
 7. **Use the flake.** Run commands as `nix develop --command <tool>` or enter
    the shell with `direnv allow`. Do not assume host tools exist.
 8. **Do not bypass access controls.** Authenticate as yourself, use your own
@@ -91,6 +94,11 @@ or milestone markdown by hand; use the wrapper so metadata stays consistent.
 nix develop              # enter the devshell (or `direnv allow`)
 just fmt                 # format Nix, Rust, Markdown, TOML, YAML, shell
 just fmt-check           # CI formatting check
+just test                # workspace tests
+just lint                # workspace clippy
+just secrets-check       # report missing keyring secrets
+just secrets-set         # prompt for BORNELOPPEN_EMAIL/PASSWORD
+just probe               # live probe with secretspec-injected credentials
 just apk-info            # package/version/SDKs from the extracted base APK
 just backlog task list   # task source of truth
 ```

@@ -1,11 +1,11 @@
 ---
 id: TASK-19
 title: Review Phase 3 findings and populate Phase 4
-status: In Progress
+status: Done
 assignee:
   - '@sshine'
 created_date: '2026-11-06T20:15:00Z'
-updated_date: '2026-11-06T20:15:00Z'
+updated_date: '2026-11-06T20:30:00Z'
 labels: []
 dependencies:
   - TASK-13
@@ -31,7 +31,7 @@ Phase 3 produced the architecture, API, auth, model, domain-flow, and security d
 - [x] #2 The Phase 4 plan states how credentials are supplied without committing them
 - [x] #3 The plan separates cookie-based page access from the optional login-token biometric path
 - [x] #4 The plan states whether domain data will be read as HTML or through discovered website JSON endpoints
-- [ ] #5 Phase 4 tasks are populated only after the user confirms advancing
+- [x] #5 Phase 4 tasks are populated only after the user confirms advancing
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -43,6 +43,12 @@ Phase 3 produced the architecture, API, auth, model, domain-flow, and security d
 4. Domain data stays HTML unless an internal JSON endpoint is found and validated. Push registration is out of scope unless needed.
 5. After live validation, reconcile the docs and create Phase 5 library tasks.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+The user confirmed Phase 4 and directed that live validation use secretspec with the keyring provider, mirroring nemlig-rs. Phase 4 tasks TASK-20..TASK-26 were populated.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
@@ -56,3 +62,9 @@ Phase 3 gate review complete. The six documents are consistent: the native API i
 
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Phase 3 gate complete. The six analysis documents were reviewed and Phase 4 tasks were created for secretspec credential wiring, the Rust probe, login/cookie validation, token validation, page probing, logout, and reconciliation.
+<!-- SECTION:FINAL_SUMMARY:END -->
