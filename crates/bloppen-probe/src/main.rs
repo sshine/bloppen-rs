@@ -10,9 +10,10 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result, bail};
+use cookie::Expiration;
 use cookie_store::CookieStore;
 use reqwest::header::{ACCEPT, CONTENT_TYPE, REFERER};
 use reqwest::{Client, Response};
@@ -157,7 +158,7 @@ async fn run() -> Result<()> {
     }
 
     if flags.iter().any(|arg| arg == "--logout") {
-        logout(&client).await?;
+        logout(&client, &cookies).await?;
     }
 
     Ok(())
@@ -248,6 +249,7 @@ async fn login(client: &Client, cookies: &CookieStoreMutex, config: &Config) -> 
         response.url()
     );
     println!("cookies before login: {}", format_cookies(cookies));
+    println!("vmcms expiry before: {}", expiry_summary(cookies));
     let before = vmcms_length(cookies);
 
     let response = client
@@ -265,6 +267,7 @@ async fn login(client: &Client, cookies: &CookieStoreMutex, config: &Config) -> 
         response.url()
     );
     println!("cookies after login: {}", format_cookies(cookies));
+    println!("vmcms expiry after: {}", expiry_summary(cookies));
     let after = vmcms_length(cookies);
     println!(
         "vmcms: before={:?} after={:?} rotated={}",
@@ -444,8 +447,9 @@ async fn describe_page(
     Ok(())
 }
 
-async fn logout(client: &Client) -> Result<()> {
+async fn logout(client: &Client, cookies: &CookieStoreMutex) -> Result<()> {
     println!("== logout");
+    println!("cookies before logout: {}", format_cookies(cookies));
     let response = client
         .get(format!("{BASE_URL}{LOGOUT_PATH}"))
         .send()
@@ -456,9 +460,13 @@ async fn logout(client: &Client) -> Result<()> {
         response.status(),
         response.url()
     );
+    println!("cookies after logout: {}", format_cookies(cookies));
 
     let authenticated = is_authenticated(client).await?;
     println!("authenticated after logout={authenticated}");
+
+    println!("== post-logout token check");
+    let _ = get_login_token(client).await?;
     Ok(())
 }
 
@@ -467,6 +475,32 @@ fn vmcms_length(cookies: &CookieStoreMutex) -> Option<usize> {
         .into_iter()
         .find(|(name, _)| name == "vmcms")
         .map(|(_, length)| length)
+}
+
+fn vmcms_expiry(cookies: &CookieStoreMutex) -> Option<i64> {
+    let store = cookies
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    store
+        .iter_any()
+        .find(|cookie| cookie.name() == "vmcms")
+        .and_then(|cookie| match cookie.expires() {
+            Some(Expiration::DateTime(expires)) => Some(expires.unix_timestamp()),
+            Some(Expiration::Session) | None => None,
+        })
+}
+
+fn expiry_summary(cookies: &CookieStoreMutex) -> String {
+    match vmcms_expiry(cookies) {
+        Some(expires) => {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|duration| duration.as_secs() as i64)
+                .unwrap_or(0);
+            format!("unix={expires} remaining={}s", expires - now)
+        }
+        None => "unknown".to_string(),
+    }
 }
 
 fn cookie_snapshot(cookies: &CookieStoreMutex) -> Vec<(String, usize)> {

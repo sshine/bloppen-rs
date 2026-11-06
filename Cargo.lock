@@ -54,6 +54,7 @@ name = "bloppen-probe"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cookie",
  "cookie_store",
  "reqwest",
  "reqwest_cookie_store",

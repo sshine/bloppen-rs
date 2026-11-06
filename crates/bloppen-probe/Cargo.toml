@@ -9,6 +9,7 @@ description = "Live validation probe for the Børneloppen website and mobile API
 
 [dependencies]
 anyhow.workspace = true
+cookie.workspace = true
 cookie_store.workspace = true
 reqwest = { workspace = true, features = [
   "charset",
