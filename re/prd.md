@@ -154,6 +154,25 @@ Flutter/React Native/Xamarin payload.
   discovers the website's internal JSON endpoints. The Rust client should clear
   local credentials on logout rather than reproduce the app's bug.
 
+## 6.3 Phase 4 setup (2026-11-06)
+
+- **Live credentials use secretspec with the keyring provider.** The global
+  secretspec configuration already defaults to `provider = "keyring"`.
+  `secretspec.toml` declares `BORNELOPPEN_EMAIL` and `BORNELOPPEN_PASSWORD`
+  (required) and `BORNELOPPEN_TEST_WRITES` (optional). No value is committed.
+- **Commands:** `just secrets-set` prompts and stores the two credentials;
+  `just secrets-check` reports missing names without prompting; `just probe`
+  runs the probe through `secretspec run --reason "bloppen live API validation"`, which injects the values as environment variables.
+- **Rust probe:** the workspace contains `crates/bloppen-probe`, a reqwest
+  client with a persistent cookie jar, redirect following, the
+  `BoerneloppenApp` User-Agent, and output that redacts passwords, cookie
+  values, and tokens. It checks `BORNELOPPEN_EMAIL`/`BORNELOPPEN_PASSWORD`
+  from the environment only.
+- **Status:** the probe builds; `cargo fmt`, `cargo clippy`, and
+  `--check-env` pass. The keyring currently reports both required secrets
+  missing, so live login has not run yet. Phase 4 continues after the
+  credentials are set locally.
+
 ## 7. Deliverables
 
 - `re/` analysis: file census, manifest, architecture, endpoint catalogue,
@@ -209,3 +228,4 @@ Flutter/React Native/Xamarin payload.
 | 2026-11-06 | Treat the login token as optional biometric re-entry, not API auth | The native API only uses the cookie; the token is injected into the website's `loginWithToken` |
 | 2026-11-06 | Treat domain data as HTML until Phase 4 proves otherwise | The native app has no domain DTOs or JSON list endpoints |
 | 2026-11-06 | Do not reproduce the app's logout behaviour in the Rust client | The app leaves the cookie and token on disk after logout |
+| 2026-11-06 | Use secretspec with the keyring provider for live credentials | Matches `nemlig-rs`; keeps the account password out of files, chat, and argv |
