@@ -1,6 +1,6 @@
 # PRD: Børneloppen Android app → Rust client
 
-**Status:** Phase 3 complete; Phase 4 gate awaiting user confirmation
+**Status:** Phase 4 live validation complete for login, token, and pages; logout and the Phase 5 gate pending
 **Last updated:** 2026-11-06
 
 ## 1. Summary
@@ -173,6 +173,37 @@ Flutter/React Native/Xamarin payload.
   missing, so live login has not run yet. Phase 4 continues after the
   credentials are set locally.
 
+## 6.4 Phase 4 live results (2026-11-06)
+
+- **Login works with username/password + cookie jar.** `POST /users/login` with
+  `email`/`password` returns 200 and lands on `/mit-boerneloppen/forside` with
+  the title `Mit Børneloppen`. No CAPTCHA or 2FA appeared.
+- **`vmcms` does not rotate.** It stays a 32-byte session identifier before and
+  after login. The server adds `hasLogin`, `HttpAccelerator`, and
+  `ShopWishlist_UserUUID` cookies. The Rust client must keep the whole jar, not
+  just `vmcms`.
+- **Failed login is distinguishable.** A fake account produced HTTP 500 and a
+  redirect back to `/users/login`; the probe reports `authenticated=false` and
+  exits non-zero. A real account with a wrong password may behave differently.
+- **Login token works.** `getLoginToken.json` returns
+  `{"status":"success","token":"..."}` with a 49-byte token and no message.
+  `loginWithToken.json` with a fresh cookie jar returns
+  `{"status":"success","message":"Du er nu logget ind"}` and authenticates the
+  existing `vmcms` session without setting a new cookie.
+- **Pages are HTML.** All nine tabs/menu pages returned 200 `text/html` with
+  the expected titles. The `sale` tab is the payout page (`Udbetaling`).
+- **A public JSON endpoint exists for product search.**
+  `GET /boerneloppen-theme/searches/search.json?query=...` returns
+  `application/json` with `data`, `pages`, and `total`; `data` is an array of
+  product objects with name, size, store, stand, price, sold price, discount,
+  and image URLs. It works without authentication.
+- **Other domain endpoints need mapping.** The pages reference internal AJAX
+  endpoints for sales history, move options, available prices, payment
+  markups, booking changes, product status, uploads, and purchases. Several
+  return 500 without the page's parameters; writes were not called.
+- **Logout was not exercised** to avoid invalidating the developer's other
+  sessions. It remains TASK-25.
+
 ## 7. Deliverables
 
 - `re/` analysis: file census, manifest, architecture, endpoint catalogue,
@@ -229,3 +260,5 @@ Flutter/React Native/Xamarin payload.
 | 2026-11-06 | Treat domain data as HTML until Phase 4 proves otherwise | The native app has no domain DTOs or JSON list endpoints |
 | 2026-11-06 | Do not reproduce the app's logout behaviour in the Rust client | The app leaves the cookie and token on disk after logout |
 | 2026-11-06 | Use secretspec with the keyring provider for live credentials | Matches `nemlig-rs`; keeps the account password out of files, chat, and argv |
+| 2026-11-06 | Keep the whole cookie jar; `vmcms` is stable, not rotated at login | Live validation showed login state comes from additional cookies and server-side session state |
+| 2026-11-06 | Use `searches/search.json` for product search; HTML/AJAX for account pages | It is public, JSON, and already returns the product fields the CLI needs |

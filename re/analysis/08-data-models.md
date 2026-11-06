@@ -33,6 +33,12 @@ Expected success shape (to confirm in Phase 4):
 {"status":"success","token":"...","message":"..."}
 ```
 
+**Live result (2026-11-06):** the success body is
+`{"status":"success","token":"..."}` with no `message`; the error body is
+`{"status":"error","message":"..."}` with no token. `loginWithToken.json`
+returns `{"status":"success","message":"Du er nu logget ind"}` with no token.
+All fields remain nullable; absent fields deserialize as null.
+
 ### `ResponseModel`
 
 Source: `api/models/ResponseModel.kt`

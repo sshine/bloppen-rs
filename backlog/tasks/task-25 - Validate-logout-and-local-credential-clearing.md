@@ -4,6 +4,7 @@ title: Validate logout and local credential clearing
 status: To Do
 assignee: []
 created_date: '2026-11-06T20:29:00Z'
+updated_date: '2026-11-06T22:35:00Z'
 labels: []
 dependencies:
   - TASK-22
@@ -24,3 +25,16 @@ The app leaves the vmcms cookie and login token on disk after logout. This task 
 - [ ] #2 The Rust cleanup contract clears the cookie jar and token file before or after the logout call
 - [ ] #3 re/analysis/14-live-logout.md records the observed server behaviour and the chosen client behaviour
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: @sshine
+created: 2026-11-06T22:35:00Z
+
+---
+
+Not run during the first live pass to avoid invalidating the developer other sessions. The probe supports `just probe --logout`; run it only when the user agrees to a server-side logout.
+
+---
+<!-- COMMENTS:END -->
