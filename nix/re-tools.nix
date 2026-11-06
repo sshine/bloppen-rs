@@ -18,6 +18,8 @@
         p7zip
         file
         tree
+        findutils
+        coreutils
         binwalk
 
         # Android resources, manifest, DEX, and signing.
