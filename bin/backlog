@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Backlog.md 1.55.3 ships a dynamically linked Bun binary. NixOS will not run
+# it without an FHS sandbox, so this wrapper runs it through steam-run. It is a
+# bootstrap workaround, not a hermetic install: the first invocation downloads
+# the npm package into ~/.npm. Packaging it properly is tracked as a backlog
+# task.
+#
+# AGENTS.md tells agents to run `backlog ...`; in this repository that means
+# `./bin/backlog ...` (or `just backlog ...`).
+set -euo pipefail
+
+exec env NIXPKGS_ALLOW_UNFREE=1 \
+  nix shell --impure --inputs-from . nixpkgs#nodejs nixpkgs#steam-run \
+  -c steam-run npx --yes backlog.md@1.55.3 "$@"
