@@ -1,6 +1,6 @@
 # PRD: Børneloppen Android app → Rust client
 
-**Status:** Phase 2 complete; Phase 3 gate awaiting user confirmation
+**Status:** Phase 3 complete; Phase 4 gate awaiting user confirmation
 **Last updated:** 2026-11-06
 
 ## 1. Summary
@@ -121,6 +121,39 @@ Flutter/React Native/Xamarin payload.
 - **Language**: the API client and CLI will be Rust (`bloppen-api` and
   `bloppen-cli`).
 
+## 6.2 Phase 3 results (2026-11-06)
+
+- **Architecture**: Koin DI, one `MainActivity`, Compose navigation with three
+  routes (`loginScreen`, `webViewsScreen`, `menuScreen/{url}/{tag}`), four
+  WebView tabs (home, stand, sale, club), and a
+  ViewModel → use case → `MainRepository` → `BoerneloppenAPI` → Retrofit chain.
+- **Native API surface is tiny**: only `GET /boerneloppen-theme/mobileApp/getLoginToken.json` and `POST /boerneloppen-theme/mobileApp/saveFirebaseToken.json`, both with a raw
+  `Cookie` header. The website's `mobileapp.js` adds `loginWithToken.json` and
+  `handleBadgeCount.json`, which the native app does not call through Retrofit.
+- **Auth**: the login screen is a WebView form at `/users/login` with
+  `email`/`password`. The server sets a `vmcms` cookie (HttpOnly, Secure,
+  SameSite=Lax, 7 days). The app reads it from `CookieManager`, stores it,
+  calls `getLoginToken.json` with `Cookie: vmcms=...`, and saves the returned
+  token encrypted with AndroidKeyStore (AES/GCM). The token is only used for
+  biometric re-entry via the website's `loginWithToken`.
+- **Logout bug**: the UI logout only writes `is_logged_in=false`; it does not
+  clear the stored `vmcms` cookie or login token. The pruning repository method
+  exists but is not wired up.
+- **Models**: three flat, nullable-string models (`LoginTokenModel`,
+  `ResponseModel`, `ErrorResponseModel`). Auth failures are HTTP 200 with
+  `status:"error"`, not 401.
+- **Domain data is HTML**: loyalty, stands, sales, profile, notifications, and
+  the menu are server-rendered WebView pages. There are no native domain DTOs
+  or JSON list endpoints in the app.
+- **Security**: global cleartext, no certificate pinning,
+  `HttpLoggingInterceptor(BODY)` and Beagle in release, Firebase token logged
+  via Timber, plaintext `vmcms` cookie, non-auth-bound Keystore key, and the
+  logout gap above.
+- **Rust implications**: the `vmcms` cookie is the primary credential; the
+  login token is optional biometric re-entry. Domain data is HTML until Phase 4
+  discovers the website's internal JSON endpoints. The Rust client should clear
+  local credentials on logout rather than reproduce the app's bug.
+
 ## 7. Deliverables
 
 - `re/` analysis: file census, manifest, architecture, endpoint catalogue,
@@ -172,3 +205,7 @@ Flutter/React Native/Xamarin payload.
 | 2026-11-06 | Proceed with 1.0.4 | 1.0.9 is not available from any accessible mirror; requires an AAS token |
 | 2026-11-06 | Use a dendritic flake instead of `shell.nix` | Mimics `~/Projects/nursery/mxroute-rs`; keeps each tool group independent |
 | 2026-11-06 | Confirm Rust for the API client and CLI | User confirmed; the milestones target `bloppen-api` and `bloppen-cli` |
+| 2026-11-06 | Use username/password + `vmcms` cookie as the primary auth path | User direction and the decompiled login flow both point to the website form and session cookie |
+| 2026-11-06 | Treat the login token as optional biometric re-entry, not API auth | The native API only uses the cookie; the token is injected into the website's `loginWithToken` |
+| 2026-11-06 | Treat domain data as HTML until Phase 4 proves otherwise | The native app has no domain DTOs or JSON list endpoints |
+| 2026-11-06 | Do not reproduce the app's logout behaviour in the Rust client | The app leaves the cookie and token on disk after logout |

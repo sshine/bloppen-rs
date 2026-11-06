@@ -101,7 +101,7 @@ The workflow is the nine-phase loop in the `android-app-reverser` skill:
 
 1. Project setup (complete)
 2. Extract and decompile (complete)
-3. Static analysis
+3. Static analysis (complete)
 4. Live API validation
 5. Rust library
 6. CLI
