@@ -93,3 +93,17 @@ past rental period, and the site answered:
 That is the site refusing a write to a stand that is not current; it is not an
 authentication failure and not an item-level issue. A successful live write
 needs a current booking.
+
+At validation time the stand page listed four bookings:
+
+```text
+2026-03-20 .. 2026-06-11
+2026-05-31 .. 2026-09-19
+2026-08-06 .. 2026-08-26
+2026-09-22 .. 2026-10-05
+```
+
+All four had ended before 2026-11-07, so there was no current booking. The first
+`data-booking-id` on the page was one of these past periods. Booking a new stand
+through `/book-en-stand` would create the next one; that is a purchase and was
+not done as part of validation.
