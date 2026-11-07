@@ -284,6 +284,15 @@ impl BloppenServer {
         &self,
         Parameters(params): Parameters<SaveProducts>,
     ) -> CallToolResult {
+        let existing: Vec<u64> = params
+            .products
+            .iter()
+            .filter_map(|product| product.product_id)
+            .collect();
+        if let Err(result) = self.permits_products(&existing) {
+            return result;
+        }
+
         let drafts: Vec<ProductDraft> = params
             .products
             .into_iter()
@@ -319,7 +328,17 @@ impl BloppenServer {
             .save_products(params.category_id, params.move_to_category_id, &drafts)
             .await
         {
-            Ok(response) => render::json(&response),
+            Ok(response) => {
+                if response.is_success() {
+                    let new_ids = response.new_product_ids.values().filter_map(|value| {
+                        value
+                            .as_u64()
+                            .or_else(|| value.as_str().and_then(|value| value.parse().ok()))
+                    });
+                    self.record_created_products(new_ids);
+                }
+                render::json(&response)
+            }
             Err(error) => error::failed(&error),
         }
     }
@@ -341,6 +360,9 @@ impl BloppenServer {
         &self,
         Parameters(params): Parameters<SetProductsActive>,
     ) -> CallToolResult {
+        if let Err(result) = self.permits_products(&params.product_ids) {
+            return result;
+        }
         match self
             .client
             .booking(params.booking_id)
@@ -368,6 +390,9 @@ impl BloppenServer {
         &self,
         Parameters(params): Parameters<MoveProducts>,
     ) -> CallToolResult {
+        if let Err(result) = self.permits_products(&params.product_ids) {
+            return result;
+        }
         match self
             .client
             .move_products_to_category(&params.product_ids, params.category_id)
@@ -422,6 +447,9 @@ impl BloppenServer {
         &self,
         Parameters(params): Parameters<ToggleNote>,
     ) -> CallToolResult {
+        if let Err(result) = self.permits_products(&[params.product_id]) {
+            return result;
+        }
         match self.client.toggle_product_note(params.product_id).await {
             Ok(response) => render::json(&response),
             Err(error) => error::failed(&error),
@@ -445,6 +473,9 @@ impl BloppenServer {
         &self,
         Parameters(params): Parameters<PrintPriceTags>,
     ) -> CallToolResult {
+        if let Err(result) = self.permits_products(&params.product_ids) {
+            return result;
+        }
         match self.client.print_price_tags(&params.product_ids).await {
             Ok(pages) => render::limited(
                 json!({
@@ -473,6 +504,9 @@ impl BloppenServer {
         &self,
         Parameters(params): Parameters<UnprintProducts>,
     ) -> CallToolResult {
+        if let Err(result) = self.permits_products(&params.product_ids) {
+            return result;
+        }
         match self
             .client
             .booking(params.booking_id)
@@ -536,6 +570,9 @@ impl BloppenServer {
                 "confirm was false. Deleting products cannot be undone, so the caller has \
                  to set confirm to true.",
             );
+        }
+        if let Err(result) = self.permits_products(&params.product_ids) {
+            return result;
         }
         match self
             .client

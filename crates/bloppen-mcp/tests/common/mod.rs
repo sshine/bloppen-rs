@@ -72,11 +72,20 @@ pub async fn serve_authenticated(limits: OutputLimits) -> Harness {
 
 /// An authenticated server serving `mode`.
 pub async fn serve_with_mode(limits: OutputLimits, mode: Mode) -> Harness {
+    serve_with_policy(limits, mode, true).await
+}
+
+/// A server that only permits product ids it has created itself.
+pub async fn serve_guarded(limits: OutputLimits, mode: Mode) -> Harness {
+    serve_with_policy(limits, mode, false).await
+}
+
+pub async fn serve_with_policy(limits: OutputLimits, mode: Mode, allow_existing: bool) -> Harness {
     let server = MockServer::start().await;
     mount_site(&server).await;
     let client = client(&server, Some(Credentials::new(EMAIL, PASSWORD)));
     client.sign_in().await.expect("the mock login succeeds");
-    start(server, client, limits, mode).await
+    start(server, client, limits, mode, allow_existing).await
 }
 
 /// A server with no credentials and an expired token endpoint.
@@ -91,13 +100,20 @@ pub async fn serve_unauthenticated(limits: OutputLimits) -> Harness {
         .mount(&server)
         .await;
     let client = client(&server, None);
-    start(server, client, limits, Mode::default()).await
+    start(server, client, limits, Mode::default(), false).await
 }
 
-async fn start(server: MockServer, client: Client, limits: OutputLimits, mode: Mode) -> Harness {
+async fn start(
+    server: MockServer,
+    client: Client,
+    limits: OutputLimits,
+    mode: Mode,
+    allow_existing: bool,
+) -> Harness {
     let (server_io, client_io) = tokio::io::duplex(64 * 1024);
     tokio::spawn(async move {
         if let Ok(service) = BloppenServer::new(client, limits, mode)
+            .allow_existing_products(allow_existing)
             .serve(server_io)
             .await
         {

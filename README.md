@@ -19,6 +19,10 @@ site and the Android app that wraps it. Not affiliated with Børneloppen.
 The reverse-engineering record is in [`re/analysis/`](re/analysis/), the PRD in
 [`re/prd.md`](re/prd.md), and the working rules in [`AGENTS.md`](AGENTS.md).
 
+A **booking** is one stand rental period, not an item. Products are the items
+inside it; "for sale" means active plus a printed price tag on an open stand.
+See [`re/analysis/17-bookings-vs-products.md`](re/analysis/17-bookings-vs-products.md).
+
 ## Build
 
 ```sh
@@ -92,8 +96,9 @@ The server speaks JSON-RPC over stdio and serves three read-only tools:
 With `--allow-writes` the server adds product save/active/move, discount, note,
 print, unprint, and shop-state tools. `--allow-writes --allow-deletes` adds
 `bloppen_delete_products`, which requires `confirm: true`. `--allow-deletes`
-without `--allow-writes` is refused. Buying and payment operations are not
-served.
+without `--allow-writes` is refused. Product-id tools only accept ids created by
+the same server process unless `--allow-existing-products` is given. Buying and
+payment operations are not served.
 
 Inspect the schemas without credentials:
 
@@ -173,8 +178,9 @@ just showcase      # read-only CLI smoke test against the real site
 just ci            # full local CI
 ```
 
-The mock suite covers login, reauth, search, pages, session persistence, and
-the write endpoints' paths, form encoding, multipart upload, and responses. The
+The mock suite covers login, reauth, search, pages, session persistence, the
+write endpoints' paths, form encoding, multipart upload, and responses, plus the
+created-product guard. The
 MCP suite covers the read-only surface, the write/delete tiers, a real client
 over a pipe, and transport stream discipline. The live suite covers sign-in,
 session status, public search, authenticated page access, token re-entry,
@@ -201,7 +207,8 @@ provider, and session captures belong under `secrets/` (gitignored). The
 library never prints passwords, cookie values, or token values. Write commands
 change real listings; `product delete` requires `--yes`, and the MCP server
 serves writes only with `--allow-writes` and deletes only with
-`--allow-writes --allow-deletes`.
+`--allow-writes --allow-deletes`. Product-id operations default to products the
+client created itself; `--allow-existing-products` is the explicit override.
 
 ## License
 

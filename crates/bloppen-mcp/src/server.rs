@@ -1,5 +1,8 @@
 //! The MCP server itself.
 
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
+
 use rmcp::ServerHandler;
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::model::{Implementation, ServerCapabilities, ServerConfig};
@@ -25,6 +28,8 @@ pub struct Mode {
 pub struct BloppenServer {
     pub(crate) client: bloppen_api::Client,
     pub(crate) limits: OutputLimits,
+    pub(crate) created_products: Arc<Mutex<HashSet<u64>>>,
+    pub(crate) allow_existing_products: bool,
     mode: Mode,
     tool_router: ToolRouter<Self>,
 }
@@ -35,9 +40,55 @@ impl BloppenServer {
         Self {
             client,
             limits,
+            created_products: Arc::new(Mutex::new(HashSet::new())),
+            allow_existing_products: false,
             mode,
             tool_router: Self::router(mode),
         }
+    }
+
+    /// Allow product-id tools to reach listings this server did not create.
+    ///
+    /// The default is to permit only products recorded from a successful
+    /// `bloppen_save_products` response in this process.
+    pub fn allow_existing_products(mut self, allow: bool) -> Self {
+        self.allow_existing_products = allow;
+        self
+    }
+
+    /// Checks that every product id was created by this server, unless overridden.
+    pub(crate) fn permits_products(
+        &self,
+        product_ids: &[u64],
+    ) -> Result<(), rmcp::model::CallToolResult> {
+        if self.allow_existing_products || product_ids.is_empty() {
+            return Ok(());
+        }
+        let created = self
+            .created_products
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let unknown: Vec<u64> = product_ids
+            .iter()
+            .copied()
+            .filter(|id| !created.contains(id))
+            .collect();
+        if unknown.is_empty() {
+            Ok(())
+        } else {
+            Err(crate::render::rejected(format!(
+                "refusing to modify product ids {unknown:?}: this server did not create them.                  Start it with --allow-existing-products if you really mean to touch                  pre-existing listings."
+            )))
+        }
+    }
+
+    /// Records product ids returned by a successful save.
+    pub(crate) fn record_created_products(&self, ids: impl IntoIterator<Item = u64>) {
+        let mut created = self
+            .created_products
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        created.extend(ids);
     }
 
     /// The tools this mode serves.
@@ -96,7 +147,9 @@ fn instructions(mode: Mode) -> String {
 
     text.push_str(
         " Buying, booking extensions, payment selection, and stand cancellation are not \
-         exposed; they involve real money and are outside this server's scope.",
+         exposed; they involve real money and are outside this server's scope. By default, \
+         product-id tools only accept products created by this server in the current \
+         process; --allow-existing-products overrides that guard.",
     );
     text
 }

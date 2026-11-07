@@ -247,13 +247,17 @@ Flutter/React Native/Xamarin payload.
   non-destructive write tools; `--allow-writes --allow-deletes` adds
   `bloppen_delete_products`, which requires `confirm: true`.
   `--allow-deletes` without `--allow-writes` is refused. Buying is not served.
+  Product-id tools only reach ids created by the same server process unless
+  `--allow-existing-products` is passed.
 - **Tests:** eight wiremock write tests, CLI surface/confirmation tests, MCP
   tier and write-tool tests, and a live safe-write round-trip. The live account
   had no current booking, so `mark_info_seen` was refused for a past booking
   with `Du har ikke adgang!`; the client surfaced the error. A successful live
   write still needs an active booking.
 - **Documentation:** `re/analysis/16-live-writes.md` records the payloads,
-  tiers, tests, and remaining work.
+  tiers, tests, and remaining work; `re/analysis/17-bookings-vs-products.md`
+  explains that a booking is a stand rental period, not an item, and records the
+  pre-existing-product guard.
 
 ## 7. Deliverables
 
@@ -316,3 +320,4 @@ Flutter/React Native/Xamarin payload.
 | 2026-11-07 | Reauthenticate with a fresh cookie jar, not by extending the old one | Login does not refresh `vmcms`; a new login gets a new seven-day cookie |
 | 2026-11-07 | Keep the MCP server read-only in the first delivery | No write domain has been validated yet; search and page reads are useful on their own |
 | 2026-11-07 | Tier MCP writes and deletes behind separate flags | Default stays read-only; adding is less dangerous than deleting, and buying is excluded |
+| 2026-11-07 | Only modify product ids the client created by default | The user asked not to touch pre-existing listings; `--allow-existing-products` is the explicit override |

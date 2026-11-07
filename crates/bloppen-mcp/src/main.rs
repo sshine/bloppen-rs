@@ -46,7 +46,8 @@ async fn run(args: Args) -> Result<(), StartupError> {
         return Ok(());
     }
 
-    let server = BloppenServer::new(client, args.limits(), mode);
+    let server = BloppenServer::new(client, args.limits(), mode)
+        .allow_existing_products(args.allow_existing_products);
     match server.serve(stdio()).await {
         Ok(service) => {
             if let Err(error) = service.waiting().await {

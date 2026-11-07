@@ -1,7 +1,8 @@
 //! The `bloppen` command-line client.
 
+use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -11,7 +12,7 @@ use bloppen_api::{
     SessionStatus,
 };
 use clap::{Parser, Subcommand};
-use serde_json::json;
+use serde_json::{Value, json};
 
 #[derive(Debug, Parser)]
 #[command(version, about)]
@@ -27,6 +28,13 @@ struct Args {
     /// Print machine-readable JSON where the command supports it.
     #[arg(long, global = true)]
     json: bool,
+
+    /// Allow writes to product ids this client did not create.
+    ///
+    /// By default, product-id operations only accept ids returned by this
+    /// client's own `product add`, so pre-existing listings are not touched.
+    #[arg(long, global = true)]
+    allow_existing_products: bool,
 
     #[command(subcommand)]
     command: Command,
@@ -245,7 +253,11 @@ async fn main() -> ExitCode {
 }
 
 async fn run(args: Args) -> Result<()> {
-    let client = build_client(&args)?;
+    let session_file = args
+        .session_file
+        .clone()
+        .unwrap_or_else(default_session_file);
+    let client = build_client(&args, &session_file)?;
 
     match args.command {
         Command::Auth { command } => match command {
@@ -312,7 +324,16 @@ async fn run(args: Args) -> Result<()> {
                 }
             }
         }
-        Command::Product { command } => run_product(&client, command, args.json).await?,
+        Command::Product { command } => {
+            run_product(
+                &client,
+                command,
+                args.json,
+                &session_file,
+                args.allow_existing_products,
+            )
+            .await?;
+        }
         Command::Shop { command } => run_shop(&client, command, args.json).await?,
         Command::Page { path, raw } => {
             let page = client.page(&path).await.context("fetching page")?;
@@ -335,7 +356,13 @@ async fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
-async fn run_product(client: &Client, command: ProductCommand, json: bool) -> Result<()> {
+async fn run_product(
+    client: &Client,
+    command: ProductCommand,
+    json: bool,
+    session_file: &Path,
+    allow_existing_products: bool,
+) -> Result<()> {
     match command {
         ProductCommand::List { booking_id, raw } => {
             let markup = client
@@ -375,12 +402,16 @@ async fn run_product(client: &Client, command: ProductCommand, json: bool) -> Re
                 .save_products(Some(category_id), None, &[draft])
                 .await
                 .context("saving the product")?;
+            if response.is_success() {
+                record_new_products(session_file, &response.new_product_ids)?;
+            }
             report_save_products(&response, json)?;
         }
         ProductCommand::Active {
             booking_id,
             product_ids,
         } => {
+            guard_product_ids(session_file, &product_ids, allow_existing_products)?;
             let response = client
                 .booking(booking_id)
                 .set_products_active(&product_ids, true)
@@ -392,6 +423,7 @@ async fn run_product(client: &Client, command: ProductCommand, json: bool) -> Re
             booking_id,
             product_ids,
         } => {
+            guard_product_ids(session_file, &product_ids, allow_existing_products)?;
             let response = client
                 .booking(booking_id)
                 .set_products_active(&product_ids, false)
@@ -407,6 +439,7 @@ async fn run_product(client: &Client, command: ProductCommand, json: bool) -> Re
             if !yes {
                 bail!("pass --yes to delete products");
             }
+            guard_product_ids(session_file, &product_ids, allow_existing_products)?;
             let response = client
                 .booking(booking_id)
                 .delete_products(&product_ids)
@@ -418,6 +451,7 @@ async fn run_product(client: &Client, command: ProductCommand, json: bool) -> Re
             category_id,
             product_ids,
         } => {
+            guard_product_ids(session_file, &product_ids, allow_existing_products)?;
             let response = client
                 .move_products_to_category(&product_ids, category_id)
                 .await
@@ -438,6 +472,7 @@ async fn run_product(client: &Client, command: ProductCommand, json: bool) -> Re
             report_action(&response, json)?;
         }
         ProductCommand::Note { product_id } => {
+            guard_product_ids(session_file, &[product_id], allow_existing_products)?;
             let response = client
                 .toggle_product_note(product_id)
                 .await
@@ -445,6 +480,7 @@ async fn run_product(client: &Client, command: ProductCommand, json: bool) -> Re
             report_action(&response, json)?;
         }
         ProductCommand::Print { product_ids, raw } => {
+            guard_product_ids(session_file, &product_ids, allow_existing_products)?;
             let pages = client
                 .print_price_tags(&product_ids)
                 .await
@@ -462,6 +498,7 @@ async fn run_product(client: &Client, command: ProductCommand, json: bool) -> Re
             booking_id,
             product_ids,
         } => {
+            guard_product_ids(session_file, &product_ids, allow_existing_products)?;
             let response = client
                 .booking(booking_id)
                 .unprint_products(&product_ids)
@@ -475,6 +512,9 @@ async fn run_product(client: &Client, command: ProductCommand, json: bool) -> Re
             image_index,
             file,
         } => {
+            if let Some(product_id) = product_id {
+                guard_product_ids(session_file, &[product_id], allow_existing_products)?;
+            }
             let bytes = fs::read(&file).with_context(|| format!("reading {}", file.display()))?;
             let filename = file
                 .file_name()
@@ -545,13 +585,77 @@ fn report_save_products(response: &SaveProductsResponse, json: bool) -> Result<(
     Ok(())
 }
 
-fn build_client(args: &Args) -> Result<Client> {
-    let session_file = args
-        .session_file
-        .clone()
-        .unwrap_or_else(default_session_file);
+fn created_products_path(session_file: &Path) -> PathBuf {
+    session_file.with_file_name("created-products.json")
+}
+
+fn load_created_products(session_file: &Path) -> HashSet<u64> {
+    std::fs::read_to_string(created_products_path(session_file))
+        .ok()
+        .and_then(|raw| serde_json::from_str::<Vec<u64>>(&raw).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .collect()
+}
+
+fn save_created_products(session_file: &Path, products: &HashSet<u64>) -> Result<()> {
+    let path = created_products_path(session_file);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    let mut ids: Vec<u64> = products.iter().copied().collect();
+    ids.sort_unstable();
+    let raw = serde_json::to_vec(&ids)?;
+    std::fs::write(&path, raw).with_context(|| format!("writing {}", path.display()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))
+            .with_context(|| format!("setting permissions on {}", path.display()))?;
+    }
+    Ok(())
+}
+
+fn record_new_products(session_file: &Path, new_products: &HashMap<String, Value>) -> Result<()> {
+    let mut products = load_created_products(session_file);
+    for value in new_products.values() {
+        if let Some(id) = value
+            .as_u64()
+            .or_else(|| value.as_str().and_then(|value| value.parse().ok()))
+        {
+            products.insert(id);
+        }
+    }
+    save_created_products(session_file, &products)
+}
+
+fn guard_product_ids(
+    session_file: &Path,
+    product_ids: &[u64],
+    allow_existing_products: bool,
+) -> Result<()> {
+    if allow_existing_products || product_ids.is_empty() {
+        return Ok(());
+    }
+    let created = load_created_products(session_file);
+    let unknown: Vec<u64> = product_ids
+        .iter()
+        .copied()
+        .filter(|id| !created.contains(id))
+        .collect();
+    if unknown.is_empty() {
+        return Ok(());
+    }
+    bail!(
+        "refusing to modify product ids {unknown:?}: this client did not create them. \
+         Pass --allow-existing-products if you really mean to touch pre-existing listings."
+    )
+}
+
+fn build_client(args: &Args, session_file: &Path) -> Result<Client> {
     let mut builder = Client::builder()
-        .session_file(session_file)
+        .session_file(session_file.to_path_buf())
         .timeout(Duration::from_secs(30));
 
     if let (Ok(email), Ok(password)) = (

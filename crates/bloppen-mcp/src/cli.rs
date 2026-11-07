@@ -44,6 +44,12 @@ pub struct Args {
     #[arg(long)]
     pub allow_deletes: bool,
 
+    /// Allow product-id tools to reach products this server did not create.
+    ///
+    /// The default only permits ids returned by this server's own save call.
+    #[arg(long)]
+    pub allow_existing_products: bool,
+
     /// Print the tool schemas as JSON and exit.
     #[arg(long)]
     pub list_tools: bool,

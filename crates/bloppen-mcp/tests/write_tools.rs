@@ -174,3 +174,58 @@ async fn a_failed_write_is_a_tool_error() {
     assert_eq!(result.is_error, Some(true));
     assert!(text(&result).contains("500"), "{}", text(&result));
 }
+
+#[tokio::test]
+async fn pre_existing_products_are_refused_by_default() {
+    let harness = common::serve_guarded(OutputLimits::default(), writes()).await;
+    mount_action(&harness.http, &format!("{PRODUCTS}/active.json")).await;
+
+    let refused = harness
+        .error(
+            "bloppen_set_products_active",
+            json!({ "booking_id": 42, "product_ids": [1], "active": true }),
+        )
+        .await;
+    assert!(
+        refused.contains("did not create") || refused.contains("allow-existing-products"),
+        "{refused}"
+    );
+}
+
+#[tokio::test]
+async fn products_created_by_the_server_may_then_be_modified() {
+    let harness = common::serve_guarded(OutputLimits::default(), writes()).await;
+    Mock::given(method("POST"))
+        .and(path(format!("{PRODUCTS}/saveBooking.json")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "newProductIds": { "tmp": "123" },
+        })))
+        .mount(&harness.http)
+        .await;
+    mount_action(&harness.http, &format!("{PRODUCTS}/active.json")).await;
+
+    harness
+        .read(
+            "bloppen_save_products",
+            json!({
+                "booking_id": 42,
+                "category_id": 12,
+                "products": [{
+                    "temp_id": "tmp",
+                    "name": "Lego",
+                    "price": "39,00",
+                    "category_id": 12,
+                }],
+            }),
+        )
+        .await;
+
+    let result = harness
+        .read(
+            "bloppen_set_products_active",
+            json!({ "booking_id": 42, "product_ids": [123], "active": true }),
+        )
+        .await;
+    assert_eq!(result["status"], json!("success"));
+}

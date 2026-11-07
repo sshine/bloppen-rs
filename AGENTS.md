@@ -74,8 +74,10 @@ or milestone markdown by hand; use the wrapper so metadata stays consistent.
 8. **Do not bypass access controls.** Authenticate as yourself, use your own
    account, and stay within the app's intended API. No credential stuffing and
    no scraping other users' data. Write commands change real listings: deletion
-   needs `--yes`, and the MCP server serves writes only with `--allow-writes`
-   and deletes only with `--allow-writes --allow-deletes`.
+   needs `--yes`; the MCP server serves writes only with `--allow-writes` and
+   deletes only with `--allow-writes --allow-deletes`; and product-id operations
+   default to products this client created. `--allow-existing-products` is the
+   explicit override for touching pre-existing listings.
 9. **Run the regression gate before committing.** `just fmt-check` now, and
    `just e2e` once the CLI exists.
 
