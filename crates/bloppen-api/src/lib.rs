@@ -60,4 +60,9 @@ pub use client::{
     Client, ClientBuilder, DEFAULT_BASE_URL, DEFAULT_REAUTH_MARGIN, DEFAULT_USER_AGENT,
 };
 pub use error::{AuthError, Error, Result};
+mod write;
+
 pub use types::{Credentials, Page, Product, SearchQuery, SearchResults, Secret, SessionStatus};
+pub use write::{
+    ActionResponse, BookingApi, ProductDraft, SaveProductsResponse, UploadImageResponse,
+};

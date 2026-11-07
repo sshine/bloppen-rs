@@ -23,8 +23,10 @@ async fn main() -> ExitCode {
 }
 
 async fn run(args: Args) -> Result<(), StartupError> {
+    let mode = args.mode()?;
+
     if args.list_tools {
-        let tools = BloppenServer::router().list_all();
+        let tools = BloppenServer::router(mode).list_all();
         println!("{}", serde_json::to_string_pretty(&tools)?);
         return Ok(());
     }
@@ -44,7 +46,7 @@ async fn run(args: Args) -> Result<(), StartupError> {
         return Ok(());
     }
 
-    let server = BloppenServer::new(client, args.limits());
+    let server = BloppenServer::new(client, args.limits(), mode);
     match server.serve(stdio()).await {
         Ok(service) => {
             if let Err(error) = service.waiting().await {

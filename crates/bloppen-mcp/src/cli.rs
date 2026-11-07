@@ -10,6 +10,7 @@ use directories::ProjectDirs;
 use tracing_subscriber::EnvFilter;
 
 use crate::render::OutputLimits;
+use crate::server::Mode;
 
 /// Serve the Børneloppen site and mobile API to an MCP client over stdio.
 #[derive(Debug, Parser)]
@@ -35,6 +36,14 @@ pub struct Args {
     #[arg(long, default_value_t = 100_000)]
     max_bytes: usize,
 
+    /// Also serve the tools that change a stand's products or shop state.
+    #[arg(long)]
+    pub allow_writes: bool,
+
+    /// Also serve the tools that delete products, on top of --allow-writes.
+    #[arg(long)]
+    pub allow_deletes: bool,
+
     /// Print the tool schemas as JSON and exit.
     #[arg(long)]
     pub list_tools: bool,
@@ -45,6 +54,17 @@ pub struct Args {
 }
 
 impl Args {
+    /// Which groups of tools to serve.
+    pub fn mode(&self) -> Result<Mode, StartupError> {
+        if self.allow_deletes && !self.allow_writes {
+            return Err(StartupError::DeletesWithoutWrites);
+        }
+        Ok(Mode {
+            writes: self.allow_writes,
+            deletes: self.allow_deletes,
+        })
+    }
+
     /// How much one tool may return.
     pub fn limits(&self) -> OutputLimits {
         OutputLimits {
@@ -106,6 +126,12 @@ pub enum StartupError {
     /// The credentials were not accepted.
     #[error("Børneloppen did not accept the credentials")]
     Rejected(#[source] Box<bloppen_api::Error>),
+
+    /// Deleting was requested without writes.
+    #[error(
+        "--allow-deletes needs --allow-writes as well; pass both or neither. The same holds          for BORNELOPPEN_MCP_ALLOW_DELETES and BORNELOPPEN_MCP_ALLOW_WRITES."
+    )]
+    DeletesWithoutWrites,
 
     /// The tool schemas could not be serialized.
     #[error("could not write the tool schemas")]

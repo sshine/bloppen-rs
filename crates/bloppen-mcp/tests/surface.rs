@@ -3,11 +3,11 @@
 
 mod common;
 
-use bloppen_mcp::server::BloppenServer;
+use bloppen_mcp::server::{BloppenServer, Mode};
 
 #[test]
 fn every_tool_states_its_annotations() {
-    for tool in BloppenServer::router().list_all() {
+    for tool in BloppenServer::router(Mode::default()).list_all() {
         let name = &tool.name;
         let annotations = tool
             .annotations
@@ -33,7 +33,7 @@ fn every_tool_states_its_annotations() {
 
 #[test]
 fn names_are_prefixed_and_short() {
-    for tool in BloppenServer::router().list_all() {
+    for tool in BloppenServer::router(Mode::default()).list_all() {
         let name = tool.name.as_ref();
         assert!(name.starts_with("bloppen_"), "{name} is not prefixed");
         assert!(name.len() <= 64, "{name} is too long");
@@ -47,7 +47,7 @@ fn names_are_prefixed_and_short() {
 
 #[test]
 fn every_tool_and_argument_is_described() {
-    for tool in BloppenServer::router().list_all() {
+    for tool in BloppenServer::router(Mode::default()).list_all() {
         let name = &tool.name;
         assert!(
             tool.description
@@ -77,7 +77,7 @@ fn every_tool_and_argument_is_described() {
 
 #[test]
 fn the_read_only_surface_is_exactly_three_tools() {
-    let mut names: Vec<String> = BloppenServer::router()
+    let mut names: Vec<String> = BloppenServer::router(Mode::default())
         .list_all()
         .into_iter()
         .map(|tool| tool.name.into())
@@ -91,4 +91,37 @@ fn the_read_only_surface_is_exactly_three_tools() {
             "bloppen_session_status",
         ]
     );
+}
+
+#[test]
+fn writes_add_the_non_destructive_tools_without_deleting() {
+    let names: Vec<String> = BloppenServer::router(Mode {
+        writes: true,
+        deletes: false,
+    })
+    .list_all()
+    .into_iter()
+    .map(|tool| tool.name.into())
+    .collect();
+    assert_eq!(names.len(), 11);
+    assert!(names.contains(&"bloppen_save_products".to_owned()));
+    assert!(names.contains(&"bloppen_set_products_active".to_owned()));
+    assert!(!names.contains(&"bloppen_delete_products".to_owned()));
+}
+
+#[test]
+fn deletes_add_the_destructive_tool() {
+    let tools = BloppenServer::router(Mode {
+        writes: true,
+        deletes: true,
+    })
+    .list_all();
+    assert_eq!(tools.len(), 12);
+    let delete = tools
+        .into_iter()
+        .find(|tool| tool.name == "bloppen_delete_products")
+        .expect("the delete tool is served");
+    let annotations = delete.annotations.expect("annotations");
+    assert_eq!(annotations.destructive_hint, Some(true));
+    assert_eq!(annotations.read_only_hint, Some(false));
 }

@@ -7,27 +7,49 @@ use rmcp::tool_handler;
 
 use crate::render::OutputLimits;
 
+/// Which groups of tools to serve.
+///
+/// Reads are always served. Writes add the non-destructive product, discount, note,
+/// print, and shop operations. Deletes add the destructive product deletion and require
+/// writes to be on as well.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Mode {
+    /// Serve the tools that change a stand's products or shop state.
+    pub writes: bool,
+    /// Serve the tools that delete something, on top of writes.
+    pub deletes: bool,
+}
+
 /// One Børneloppen session, served over MCP.
 #[derive(Debug, Clone)]
 pub struct BloppenServer {
     pub(crate) client: bloppen_api::Client,
     pub(crate) limits: OutputLimits,
+    mode: Mode,
     tool_router: ToolRouter<Self>,
 }
 
 impl BloppenServer {
     /// Builds a server around one client.
-    pub fn new(client: bloppen_api::Client, limits: OutputLimits) -> Self {
+    pub fn new(client: bloppen_api::Client, limits: OutputLimits, mode: Mode) -> Self {
         Self {
             client,
             limits,
-            tool_router: Self::router(),
+            mode,
+            tool_router: Self::router(mode),
         }
     }
 
-    /// The read-only tools this server serves.
-    pub fn router() -> ToolRouter<Self> {
-        Self::read_router()
+    /// The tools this mode serves.
+    pub fn router(mode: Mode) -> ToolRouter<Self> {
+        let mut router = Self::read_router();
+        if mode.writes {
+            router.merge(Self::write_router());
+        }
+        if mode.deletes {
+            router.merge(Self::delete_router());
+        }
+        router
     }
 }
 
@@ -39,18 +61,42 @@ impl ServerHandler for BloppenServer {
                 env!("CARGO_PKG_NAME"),
                 env!("CARGO_PKG_VERSION"),
             ))
-            .with_instructions(instructions())
+            .with_instructions(instructions(self.mode))
     }
 }
 
-fn instructions() -> String {
-    "This server exposes read-only access to www.boerneloppen.dk, the Danish children's \
-     flea-market site behind the Børneloppen Android app. Product search uses the public \
-     search.json endpoint. Page fetches use the website session: private /mit-boerneloppen/ \
-     pages require the vmcms cookie, which lives for seven days and is not refreshed by \
-     logging in. The client reauthenticates before the cookie expires and once again if a \
-     page lands on the login screen. Credentials come from BORNELOPPEN_EMAIL and \
-     BORNELOPPEN_PASSWORD in the server environment; the session is cached in the XDG data \
-     directory. This server has no write tools."
-        .to_owned()
+fn instructions(mode: Mode) -> String {
+    let mut text = String::from(
+        "This server exposes Børneloppen.dk, the Danish children's flea-market site behind \
+         the Børneloppen Android app. Read tools cover session status, public product \
+         search, and HTML page fetches. Private /mit-boerneloppen/ pages use the vmcms \
+         cookie, which lives for seven days and is not refreshed by logging in; the client \
+         reauthenticates before it expires and once again if a page lands on the login \
+         screen. Credentials come from BORNELOPPEN_EMAIL and BORNELOPPEN_PASSWORD in the \
+         server environment; the session is cached in the XDG data directory.",
+    );
+
+    if !mode.writes {
+        text.push_str(
+            " This server was started without --allow-writes, so it serves no tool that \
+             changes a stand.",
+        );
+    } else if !mode.deletes {
+        text.push_str(
+            " Write tools are enabled for products, discounts, notes, price-tag printing, \
+             and shop state. Deleting products is a separate tier behind --allow-deletes, \
+             which is off.",
+        );
+    } else {
+        text.push_str(
+            " Write and delete tools are enabled. Deleting products is destructive and \
+             cannot be undone.",
+        );
+    }
+
+    text.push_str(
+        " Buying, booking extensions, payment selection, and stand cancellation are not \
+         exposed; they involve real money and are outside this server's scope.",
+    );
+    text
 }

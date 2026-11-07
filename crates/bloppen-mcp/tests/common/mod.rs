@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use bloppen_api::{Client, Credentials};
 use bloppen_mcp::render::OutputLimits;
-use bloppen_mcp::server::BloppenServer;
+use bloppen_mcp::server::{BloppenServer, Mode};
 use rmcp::model::{CallToolRequestParams, CallToolResult, Tool};
 use rmcp::service::RunningService;
 use rmcp::{RoleClient, ServiceExt as _};
@@ -67,11 +67,16 @@ pub async fn serve() -> Harness {
 
 /// A server whose client has already signed in against the mock site.
 pub async fn serve_authenticated(limits: OutputLimits) -> Harness {
+    serve_with_mode(limits, Mode::default()).await
+}
+
+/// An authenticated server serving `mode`.
+pub async fn serve_with_mode(limits: OutputLimits, mode: Mode) -> Harness {
     let server = MockServer::start().await;
     mount_site(&server).await;
     let client = client(&server, Some(Credentials::new(EMAIL, PASSWORD)));
     client.sign_in().await.expect("the mock login succeeds");
-    start(server, client, limits).await
+    start(server, client, limits, mode).await
 }
 
 /// A server with no credentials and an expired token endpoint.
@@ -86,13 +91,16 @@ pub async fn serve_unauthenticated(limits: OutputLimits) -> Harness {
         .mount(&server)
         .await;
     let client = client(&server, None);
-    start(server, client, limits).await
+    start(server, client, limits, Mode::default()).await
 }
 
-async fn start(server: MockServer, client: Client, limits: OutputLimits) -> Harness {
+async fn start(server: MockServer, client: Client, limits: OutputLimits, mode: Mode) -> Harness {
     let (server_io, client_io) = tokio::io::duplex(64 * 1024);
     tokio::spawn(async move {
-        if let Ok(service) = BloppenServer::new(client, limits).serve(server_io).await {
+        if let Ok(service) = BloppenServer::new(client, limits, mode)
+            .serve(server_io)
+            .await
+        {
             let _ = service.waiting().await;
         }
     });

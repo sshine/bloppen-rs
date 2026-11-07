@@ -33,6 +33,10 @@ pub enum Error {
         body: String,
     },
 
+    /// A request body could not be serialized.
+    #[error("could not encode request body")]
+    Encode(#[source] serde_json::Error),
+
     /// The response body did not match the expected shape.
     #[error("could not decode response body as {expected}")]
     Decode {

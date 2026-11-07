@@ -31,3 +31,4 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 rmcp = { workspace = true, features = ["client"] }
 tokio = { workspace = true, features = ["io-util", "test-util"] }
 wiremock = { workspace = true }
+url = { workspace = true }

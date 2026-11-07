@@ -12,7 +12,9 @@ site and the Android app that wraps it. Not affiliated with Børneloppen.
   site.
 - **Phase 5–6 delivered:** a typed API library, a CLI, and a read-only MCP
   server.
-- **Phase 7+:** more domain endpoints, write operations, and packaging remain.
+- **Phase 7 in progress:** product/stand write operations are implemented in
+  the library, CLI, and tiered MCP server. Buying and booking payments are out
+  of scope.
 
 The reverse-engineering record is in [`re/analysis/`](re/analysis/), the PRD in
 [`re/prd.md`](re/prd.md), and the working rules in [`AGENTS.md`](AGENTS.md).
@@ -25,7 +27,9 @@ just ci
 ```
 
 `just ci` runs formatting, clippy, tests, docs, the lock check, and
-`cargo package` for every workspace member.
+`cargo package` for every workspace member (the library tarball is verified; the
+CLI, MCP, and probe manifests are checked with `--no-verify` because they depend
+on the unpublished `bloppen-api` path).
 
 ## Credentials
 
@@ -52,6 +56,19 @@ just cli page /mit-boerneloppen/forside
 just cli page /mit-boerneloppen/klub --raw
 just cli auth token            # redacted
 just cli auth logout
+
+just cli product list --booking-id 123 --raw
+just cli product add --booking-id 123 --name Lego --price 39,00 --category-id 12
+just cli product active --booking-id 123 --product-id 456
+just cli product inactive --booking-id 123 --product-id 456
+just cli product move --category-id 99 --product-id 456
+just cli product discount --booking-id 123 --percent 25 --from 2026-11-08 --to 2026-11-10
+just cli product note --product-id 456
+just cli product print --product-id 456
+just cli product unprint --booking-id 123 --product-id 456
+just cli product upload --product-id 456 --file photo.jpg
+just cli product delete --booking-id 123 --product-id 456 --yes
+just cli shop activate --booking-id 123
 ```
 
 The session is stored at the XDG data path (`~/.local/share/bloppen/session.json`
@@ -72,6 +89,12 @@ The server speaks JSON-RPC over stdio and serves three read-only tools:
 | `bloppen_search_products` | Public product search with pagination and a limit |
 | `bloppen_fetch_page` | HTML page fetch; private pages use the stored session |
 
+With `--allow-writes` the server adds product save/active/move, discount, note,
+print, unprint, and shop-state tools. `--allow-writes --allow-deletes` adds
+`bloppen_delete_products`, which requires `confirm: true`. `--allow-deletes`
+without `--allow-writes` is refused. Buying and payment operations are not
+served.
+
 Inspect the schemas without credentials:
 
 ```sh
@@ -91,7 +114,7 @@ Example MCP client configuration, run from this repository:
   "mcpServers": {
     "bloppen": {
       "command": "nix",
-      "args": ["develop", "--command", "just", "mcp"]
+      "args": ["develop", "--command", "just", "mcp", "--allow-writes"]
     }
   }
 }
@@ -150,8 +173,13 @@ just showcase      # read-only CLI smoke test against the real site
 just ci            # full local CI
 ```
 
-The live suite covers sign-in, session status, public search, authenticated
-page access, token re-entry, and logout.
+The mock suite covers login, reauth, search, pages, session persistence, and
+the write endpoints' paths, form encoding, multipart upload, and responses. The
+MCP suite covers the read-only surface, the write/delete tiers, a real client
+over a pipe, and transport stream discipline. The live suite covers sign-in,
+session status, public search, authenticated page access, token re-entry,
+logout, and a safe write round-trip (the site refused the past booking used for
+the check, which the client reported correctly).
 
 ## Layout
 
@@ -170,7 +198,10 @@ page access, token re-entry, and logout.
 Never commit the APK, extracted splits, decompiled output, network captures, or
 credentials. Live account credentials live in the configured secretspec
 provider, and session captures belong under `secrets/` (gitignored). The
-library never prints passwords, cookie values, or token values.
+library never prints passwords, cookie values, or token values. Write commands
+change real listings; `product delete` requires `--yes`, and the MCP server
+serves writes only with `--allow-writes` and deletes only with
+`--allow-writes --allow-deletes`.
 
 ## License
 

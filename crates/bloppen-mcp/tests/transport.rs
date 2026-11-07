@@ -90,3 +90,37 @@ fn a_refused_check_explains_the_missing_credentials_on_stderr() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("BORNELOPPEN_EMAIL"), "{stderr}");
 }
+
+fn list_tools(args: &[&str]) -> std::process::Output {
+    Command::new(env!("CARGO_BIN_EXE_bloppen-mcp"))
+        .arg("--list-tools")
+        .args(args)
+        .env_remove("BORNELOPPEN_EMAIL")
+        .env_remove("BORNELOPPEN_PASSWORD")
+        .output()
+        .expect("the binary runs")
+}
+
+#[test]
+fn the_write_tiers_change_the_listed_surface() {
+    let read: Vec<Value> =
+        serde_json::from_slice(&list_tools(&[]).stdout).expect("read tools are JSON");
+    assert_eq!(read.len(), 3);
+
+    let writes: Vec<Value> =
+        serde_json::from_slice(&list_tools(&["--allow-writes"]).stdout).expect("write tools");
+    assert_eq!(writes.len(), 11);
+
+    let all: Vec<Value> =
+        serde_json::from_slice(&list_tools(&["--allow-writes", "--allow-deletes"]).stdout)
+            .expect("all tools");
+    assert_eq!(all.len(), 12);
+}
+
+#[test]
+fn allow_deletes_without_writes_is_refused() {
+    let output = list_tools(&["--allow-deletes"]);
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--allow-writes"), "{stderr}");
+}

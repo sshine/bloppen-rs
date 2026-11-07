@@ -1,11 +1,15 @@
 //! The `bloppen` command-line client.
 
+use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use anyhow::{Context, Result};
-use bloppen_api::{Client, Credentials, SearchQuery, SessionStatus};
+use anyhow::{Context, Result, bail};
+use bloppen_api::{
+    ActionResponse, Client, Credentials, ProductDraft, SaveProductsResponse, SearchQuery,
+    SessionStatus,
+};
 use clap::{Parser, Subcommand};
 use serde_json::json;
 
@@ -53,6 +57,162 @@ enum Command {
         /// Print the raw HTML instead of a summary.
         #[arg(long)]
         raw: bool,
+    },
+    /// Manage products on one stand.
+    Product {
+        #[command(subcommand)]
+        command: ProductCommand,
+    },
+    /// Activate or deactivate a stand's webshop.
+    Shop {
+        #[command(subcommand)]
+        command: ShopCommand,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ProductCommand {
+    /// Print the stand's product-list markup.
+    List {
+        /// Booking id of the stand.
+        #[arg(long)]
+        booking_id: u64,
+        /// Print the raw HTML.
+        #[arg(long)]
+        raw: bool,
+    },
+    /// Add one product to a stand.
+    Add {
+        /// Booking id of the stand.
+        #[arg(long)]
+        booking_id: u64,
+        /// Short product name, at most 24 characters on the site.
+        #[arg(long)]
+        name: String,
+        /// Price as the site accepts it, such as "39,00".
+        #[arg(long)]
+        price: String,
+        /// Leaf category id.
+        #[arg(long)]
+        category_id: i64,
+        /// Size/specification id.
+        #[arg(long)]
+        size_id: Option<i64>,
+        /// Optional description.
+        #[arg(long)]
+        description: Option<String>,
+        /// Add the product hidden from shoppers.
+        #[arg(long)]
+        inactive: bool,
+    },
+    /// Show products in the webshop.
+    Active {
+        /// Booking id of the stand.
+        #[arg(long)]
+        booking_id: u64,
+        /// Product ids, repeated or comma-separated.
+        #[arg(long = "product-id", required = true)]
+        product_ids: Vec<u64>,
+    },
+    /// Hide products from the webshop.
+    Inactive {
+        /// Booking id of the stand.
+        #[arg(long)]
+        booking_id: u64,
+        /// Product ids, repeated or comma-separated.
+        #[arg(long = "product-id", required = true)]
+        product_ids: Vec<u64>,
+    },
+    /// Delete products. Requires --yes.
+    Delete {
+        /// Booking id of the stand.
+        #[arg(long)]
+        booking_id: u64,
+        /// Product ids, repeated or comma-separated.
+        #[arg(long = "product-id", required = true)]
+        product_ids: Vec<u64>,
+        /// Confirm the deletion.
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Move products to another category on the same stand.
+    Move {
+        /// Destination category id.
+        #[arg(long)]
+        category_id: i64,
+        /// Product ids, repeated or comma-separated.
+        #[arg(long = "product-id", required = true)]
+        product_ids: Vec<u64>,
+    },
+    /// Save a discount for a stand.
+    Discount {
+        /// Booking id of the stand.
+        #[arg(long)]
+        booking_id: u64,
+        /// Discount percentage.
+        #[arg(long)]
+        percent: Option<f64>,
+        /// Start date, passed through to the site.
+        #[arg(long)]
+        from: Option<String>,
+        /// End date, passed through to the site.
+        #[arg(long)]
+        to: Option<String>,
+    },
+    /// Toggle the note marker on one product.
+    Note {
+        /// Product id.
+        #[arg(long)]
+        product_id: u64,
+    },
+    /// Fetch printable price-tag HTML for products.
+    Print {
+        /// Product ids, repeated or comma-separated.
+        #[arg(long = "product-id", required = true)]
+        product_ids: Vec<u64>,
+        /// Print the HTML instead of a summary.
+        #[arg(long)]
+        raw: bool,
+    },
+    /// Mark products as not printed.
+    Unprint {
+        /// Booking id of the stand.
+        #[arg(long)]
+        booking_id: u64,
+        /// Product ids, repeated or comma-separated.
+        #[arg(long = "product-id", required = true)]
+        product_ids: Vec<u64>,
+    },
+    /// Upload an image for a product.
+    Upload {
+        /// Existing product id.
+        #[arg(long)]
+        product_id: Option<u64>,
+        /// Temporary id for a product that has not been saved yet.
+        #[arg(long)]
+        temp_id: Option<String>,
+        /// Use 2 for the second image.
+        #[arg(long)]
+        image_index: Option<u8>,
+        /// Image file.
+        #[arg(long)]
+        file: PathBuf,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ShopCommand {
+    /// Activate the stand's webshop.
+    Activate {
+        /// Booking id of the stand.
+        #[arg(long)]
+        booking_id: u64,
+    },
+    /// Deactivate the stand's webshop.
+    Deactivate {
+        /// Booking id of the stand.
+        #[arg(long)]
+        booking_id: u64,
     },
 }
 
@@ -152,6 +312,8 @@ async fn run(args: Args) -> Result<()> {
                 }
             }
         }
+        Command::Product { command } => run_product(&client, command, args.json).await?,
+        Command::Shop { command } => run_shop(&client, command, args.json).await?,
         Command::Page { path, raw } => {
             let page = client.page(&path).await.context("fetching page")?;
             if raw {
@@ -170,6 +332,216 @@ async fn run(args: Args) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+async fn run_product(client: &Client, command: ProductCommand, json: bool) -> Result<()> {
+    match command {
+        ProductCommand::List { booking_id, raw } => {
+            let markup = client
+                .booking(booking_id)
+                .products_markup()
+                .await
+                .context("fetching the product list")?;
+            if raw {
+                print!("{markup}");
+            } else {
+                println!(
+                    "{} bytes of product markup (use --raw to print)",
+                    markup.len()
+                );
+            }
+        }
+        ProductCommand::Add {
+            booking_id,
+            name,
+            price,
+            category_id,
+            size_id,
+            description,
+            inactive,
+        } => {
+            let mut draft = ProductDraft::new(name, price)
+                .with_category(category_id)
+                .with_active(!inactive);
+            if let Some(size_id) = size_id {
+                draft = draft.with_size(size_id);
+            }
+            if let Some(description) = description {
+                draft = draft.with_description(description);
+            }
+            let response = client
+                .booking(booking_id)
+                .save_products(Some(category_id), None, &[draft])
+                .await
+                .context("saving the product")?;
+            report_save_products(&response, json)?;
+        }
+        ProductCommand::Active {
+            booking_id,
+            product_ids,
+        } => {
+            let response = client
+                .booking(booking_id)
+                .set_products_active(&product_ids, true)
+                .await
+                .context("activating products")?;
+            report_action(&response, json)?;
+        }
+        ProductCommand::Inactive {
+            booking_id,
+            product_ids,
+        } => {
+            let response = client
+                .booking(booking_id)
+                .set_products_active(&product_ids, false)
+                .await
+                .context("deactivating products")?;
+            report_action(&response, json)?;
+        }
+        ProductCommand::Delete {
+            booking_id,
+            product_ids,
+            yes,
+        } => {
+            if !yes {
+                bail!("pass --yes to delete products");
+            }
+            let response = client
+                .booking(booking_id)
+                .delete_products(&product_ids)
+                .await
+                .context("deleting products")?;
+            report_action(&response, json)?;
+        }
+        ProductCommand::Move {
+            category_id,
+            product_ids,
+        } => {
+            let response = client
+                .move_products_to_category(&product_ids, category_id)
+                .await
+                .context("moving products")?;
+            report_action(&response, json)?;
+        }
+        ProductCommand::Discount {
+            booking_id,
+            percent,
+            from,
+            to,
+        } => {
+            let response = client
+                .booking(booking_id)
+                .save_discount(percent, from.as_deref(), to.as_deref())
+                .await
+                .context("saving the discount")?;
+            report_action(&response, json)?;
+        }
+        ProductCommand::Note { product_id } => {
+            let response = client
+                .toggle_product_note(product_id)
+                .await
+                .context("toggling the note")?;
+            report_action(&response, json)?;
+        }
+        ProductCommand::Print { product_ids, raw } => {
+            let pages = client
+                .print_price_tags(&product_ids)
+                .await
+                .context("printing price tags")?;
+            if raw {
+                for page in &pages {
+                    print!("{page}");
+                }
+            } else {
+                let bytes: usize = pages.iter().map(String::len).sum();
+                println!("{} page(s), {} bytes of price-tag HTML", pages.len(), bytes);
+            }
+        }
+        ProductCommand::Unprint {
+            booking_id,
+            product_ids,
+        } => {
+            let response = client
+                .booking(booking_id)
+                .unprint_products(&product_ids)
+                .await
+                .context("marking products unprinted")?;
+            report_action(&response, json)?;
+        }
+        ProductCommand::Upload {
+            product_id,
+            temp_id,
+            image_index,
+            file,
+        } => {
+            let bytes = fs::read(&file).with_context(|| format!("reading {}", file.display()))?;
+            let filename = file
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("image");
+            let response = client
+                .upload_product_image(product_id, temp_id.as_deref(), image_index, bytes, filename)
+                .await
+                .context("uploading the image")?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&response)?);
+            } else {
+                println!(
+                    "uploaded: {}",
+                    response.image.as_deref().unwrap_or("(no path returned)")
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn run_shop(client: &Client, command: ShopCommand, json: bool) -> Result<()> {
+    let (booking_id, active) = match command {
+        ShopCommand::Activate { booking_id } => (booking_id, true),
+        ShopCommand::Deactivate { booking_id } => (booking_id, false),
+    };
+    let response = client
+        .booking(booking_id)
+        .set_shop_active(active)
+        .await
+        .context("changing the shop state")?;
+    report_action(&response, json)
+}
+
+fn report_action(response: &ActionResponse, json: bool) -> Result<()> {
+    if json {
+        println!("{}", serde_json::to_string_pretty(response)?);
+    } else {
+        println!(
+            "{}: {}",
+            response.status.as_deref().unwrap_or("(no status)"),
+            response.message.as_deref().unwrap_or("")
+        );
+    }
+    if !response.is_success() {
+        bail!("the site reported an error");
+    }
+    Ok(())
+}
+
+fn report_save_products(response: &SaveProductsResponse, json: bool) -> Result<()> {
+    if json {
+        println!("{}", serde_json::to_string_pretty(response)?);
+    } else {
+        println!(
+            "{}: {}",
+            response.status.as_deref().unwrap_or("(no status)"),
+            response.message.as_deref().unwrap_or("")
+        );
+        if !response.new_product_ids.is_empty() {
+            println!("new product ids: {:?}", response.new_product_ids);
+        }
+    }
+    if !response.is_success() {
+        bail!("the site reported an error");
+    }
     Ok(())
 }
 

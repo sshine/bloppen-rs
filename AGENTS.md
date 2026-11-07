@@ -73,7 +73,9 @@ or milestone markdown by hand; use the wrapper so metadata stays consistent.
    the shell with `direnv allow`. Do not assume host tools exist.
 8. **Do not bypass access controls.** Authenticate as yourself, use your own
    account, and stay within the app's intended API. No credential stuffing and
-   no scraping other users' data.
+   no scraping other users' data. Write commands change real listings: deletion
+   needs `--yes`, and the MCP server serves writes only with `--allow-writes`
+   and deletes only with `--allow-writes --allow-deletes`.
 9. **Run the regression gate before committing.** `just fmt-check` now, and
    `just e2e` once the CLI exists.
 
@@ -100,8 +102,10 @@ just secrets-check       # report missing keyring secrets
 just secrets-set         # prompt for BORNELOPPEN_EMAIL/PASSWORD
 just probe               # live probe with secretspec-injected credentials
 just cli auth status     # CLI with secretspec-injected credentials
+just cli product --help  # product write commands
 just showcase            # read-only CLI smoke test against the live site
-just mcp-tools           # print the MCP tool schemas
+just mcp-tools           # print the default (read-only) MCP tool schemas
+just mcp --allow-writes --list-tools  # include the write tools
 just mcp --check         # sign in and exit without serving
 just live-test           # real-site API tests, one at a time
 just apk-info            # package/version/SDKs from the extracted base APK

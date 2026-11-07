@@ -30,6 +30,7 @@ reqwest = { workspace = true, features = [
   "form",
   "http2",
   "json",
+  "multipart",
 ] }
 reqwest_cookie_store = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

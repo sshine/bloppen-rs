@@ -30,9 +30,13 @@ doc *args='':
 lock-check:
     cargo metadata --locked --format-version 1 > /dev/null
 
-# Verify every member packages cleanly
+# Verify every member packages cleanly, and verify the library's tarball.
+# The CLI, MCP server, and probe depend on the unpublished bloppen-api path; their
+# packaged manifests and file lists are checked with --no-verify, and the library's
+# tarball is compiled on its own.
 package-check:
-    cargo package --locked --workspace --allow-dirty
+    cargo package --locked --workspace --allow-dirty --no-verify
+    cargo package --locked -p bloppen-api --allow-dirty
 
 # Run CI checks locally
 ci: fmt-check lint test build doc lock-check package-check

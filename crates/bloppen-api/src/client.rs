@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use reqwest::header::{ACCEPT, HeaderValue};
+use reqwest::header::{ACCEPT, HeaderValue, REFERER};
 use reqwest::{Method, RequestBuilder};
 use serde::de::DeserializeOwned;
 use tokio::sync::Mutex;
@@ -100,6 +100,16 @@ impl Client {
 
     pub(crate) fn request(&self, method: Method, url: Url) -> RequestBuilder {
         self.inner.http.request(method, url)
+    }
+
+    /// A request with the headers the website's jQuery AJAX calls send.
+    pub(crate) fn write_request(&self, method: Method, url: Url) -> RequestBuilder {
+        self.request(method, url)
+            .header("X-Requested-With", "XMLHttpRequest")
+            .header(
+                REFERER,
+                format!("{}mit-boerneloppen/stand", self.base_url()),
+            )
     }
 
     /// Sends a builder and decodes a successful JSON body.

@@ -1,6 +1,6 @@
 # PRD: Børneloppen Android app → Rust client
 
-**Status:** Phase 5/6 complete: API library, CLI, and read-only MCP server delivered; Phase 7+ pending
+**Status:** Phase 7 in progress: product/stand writes and tiered MCP tools delivered; buying and booking payments excluded
 **Last updated:** 2026-11-07
 
 ## 1. Summary
@@ -229,6 +229,32 @@ Flutter/React Native/Xamarin payload.
 - **Live results**: sign-in, token, search (2,413 Lego results across 25
   pages), home page (207,624 bytes), token re-entry, and logout all pass.
 
+## 6.6 Phase 7 write operations (2026-11-07)
+
+- **Endpoint map:** the stand editor's AJAX calls were read from
+  `scripts.min.js` and the saved stand page. Product save/active/delete/unprint/
+  move, discount, note toggle, shop activation, price-tag printing, image
+  upload, and the product-list markup are implemented. Buying, booking
+  extension, cleanup, cancellation, and payment selection are not.
+- **Library:** `Client::booking(id)` exposes the stand-scoped writes; the
+  operations that do not use a booking id (move-to-category, note toggle, print,
+  upload) are also on `Client`. Every write runs the same expiry-aware and
+  reactive reauth path as reads and sends the site's
+  `X-Requested-With: XMLHttpRequest` header.
+- **CLI:** `product list/add/active/inactive/delete/move/discount/note/print/ unprint/upload` and `shop activate/deactivate`. `product delete` requires
+  `--yes` before any request.
+- **MCP tiers:** default is read-only. `--allow-writes` adds the eight
+  non-destructive write tools; `--allow-writes --allow-deletes` adds
+  `bloppen_delete_products`, which requires `confirm: true`.
+  `--allow-deletes` without `--allow-writes` is refused. Buying is not served.
+- **Tests:** eight wiremock write tests, CLI surface/confirmation tests, MCP
+  tier and write-tool tests, and a live safe-write round-trip. The live account
+  had no current booking, so `mark_info_seen` was refused for a past booking
+  with `Du har ikke adgang!`; the client surfaced the error. A successful live
+  write still needs an active booking.
+- **Documentation:** `re/analysis/16-live-writes.md` records the payloads,
+  tiers, tests, and remaining work.
+
 ## 7. Deliverables
 
 - `re/` analysis: file census, manifest, architecture, endpoint catalogue,
@@ -289,3 +315,4 @@ Flutter/React Native/Xamarin payload.
 | 2026-11-06 | Use `searches/search.json` for product search; HTML/AJAX for account pages | It is public, JSON, and already returns the product fields the CLI needs |
 | 2026-11-07 | Reauthenticate with a fresh cookie jar, not by extending the old one | Login does not refresh `vmcms`; a new login gets a new seven-day cookie |
 | 2026-11-07 | Keep the MCP server read-only in the first delivery | No write domain has been validated yet; search and page reads are useful on their own |
+| 2026-11-07 | Tier MCP writes and deletes behind separate flags | Default stays read-only; adding is less dangerous than deleting, and buying is excluded |

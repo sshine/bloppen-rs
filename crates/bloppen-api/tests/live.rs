@@ -135,3 +135,53 @@ async fn logout_clears_the_local_session() {
     let status = client.session_status().await.expect("status is readable");
     assert!(!status.authenticated);
 }
+
+fn first_booking_id(html: &str) -> Option<u64> {
+    for needle in ["data-booking-id=\"", "data-bookingId=\""] {
+        if let Some(start) = html.find(needle) {
+            let rest = &html[start + needle.len()..];
+            let end = rest.find('"')?;
+            return rest[..end].parse().ok();
+        }
+    }
+    None
+}
+
+#[tokio::test]
+#[ignore = "talks to the real site and writes the info-seen flag"]
+async fn a_safe_write_round_trips_or_reports_no_access() {
+    let client = authenticated_client("write");
+    client
+        .sign_in()
+        .await
+        .expect("the credentials are accepted");
+
+    let page = client
+        .page("/mit-boerneloppen/stand")
+        .await
+        .expect("the stand page is readable");
+    let booking_id = first_booking_id(&page.html).expect("the account has a stand");
+
+    let response = client
+        .booking(booking_id)
+        .mark_info_seen()
+        .await
+        .expect("the write request completes");
+    if response.is_success() {
+        println!("mark_info_seen accepted for booking {booking_id}");
+    } else {
+        // The stand page also lists past bookings. The site refuses writes to those with
+        // this message, which is useful evidence that ownership/state is enforced.
+        println!(
+            "mark_info_seen refused for booking {booking_id}: {:?}",
+            response.message
+        );
+        assert!(
+            response
+                .message
+                .as_deref()
+                .is_some_and(|message| message.contains("adgang")),
+            "{response:?}"
+        );
+    }
+}
