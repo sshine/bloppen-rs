@@ -109,9 +109,9 @@ enum ProductCommand {
         /// Optional description.
         #[arg(long)]
         description: Option<String>,
-        /// Add the product hidden from shoppers.
+        /// Show the new product immediately. Omitted, it is created hidden.
         #[arg(long)]
-        inactive: bool,
+        active: bool,
     },
     /// Show products in the webshop.
     Active {
@@ -386,11 +386,11 @@ async fn run_product(
             category_id,
             size_id,
             description,
-            inactive,
+            active,
         } => {
             let mut draft = ProductDraft::new(name, price)
                 .with_category(category_id)
-                .with_active(!inactive);
+                .with_active(active);
             if let Some(size_id) = size_id {
                 draft = draft.with_size(size_id);
             }

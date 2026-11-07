@@ -59,8 +59,9 @@ relevant operations are:
 | Activate the stand's webshop | `aktiverShop` / `deaktiverShop` |
 
 Adding a product does not print a tag and does not activate it for sale by
-itself. Deleting a product removes it; printing is the step that makes the
-physical label appear.
+itself. The CLI and MCP server create new products **hidden** by default; pass
+`--active` (CLI) or set `active: true` (MCP) to show one. Deleting a product
+removes it; printing is the step that makes the physical label appear.
 
 ## Safety policy in this repository
 

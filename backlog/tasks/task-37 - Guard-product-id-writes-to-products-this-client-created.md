@@ -4,7 +4,7 @@ title: Guard product-id writes to products this client created
 status: Done
 assignee: []
 created_date: '2026-11-07T10:10:00Z'
-updated_date: '2026-11-07T10:10:00Z'
+updated_date: '2026-11-07T10:13:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -31,6 +31,8 @@ The user clarified that a booking is a stand rental period, not an item, and ask
 
 <!-- SECTION:NOTES:BEGIN -->
 CLI uses created-products.json beside the session file; MCP uses an in-process HashSet populated from newProductIds. The guard is bypassed by --allow-existing-products. Tests: CLI unknown-id refusal, MCP unknown-id refusal, and MCP save-then-modify success. just ci passes.
+
+New products are also hidden by default: ProductDraft::new uses active=false, the CLI needs --active to show one, and the MCP ProductInput defaults active to false. This matches the do-not-put-things-for-sale-without-intent policy.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

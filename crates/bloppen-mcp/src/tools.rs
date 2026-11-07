@@ -169,7 +169,7 @@ pub struct ProductInput {
     pub category_id: Option<i64>,
     /// Size/specification id.
     pub size_id: Option<i64>,
-    /// Whether the product is visible. Omitted means visible.
+    /// Whether the product is visible. Omitted means hidden.
     pub active: Option<bool>,
     /// Sort order within the category. Omitted means zero.
     pub order: Option<i64>,
@@ -299,7 +299,7 @@ impl BloppenServer {
             .map(|product| {
                 let category = product.category_id.or(params.category_id);
                 let mut draft = ProductDraft::new(product.name, product.price)
-                    .with_active(product.active.unwrap_or(true));
+                    .with_active(product.active.unwrap_or(false));
                 if let Some(id) = product.product_id {
                     draft = draft.with_product_id(id);
                 }

@@ -55,6 +55,9 @@ The operations that are not scoped to a booking (`move_products_to_category`,
 `toggle_product_note`, `print_price_tags`, `upload_product_image`) are also on
 `Client` directly.
 
+`ProductDraft::new` creates a **hidden** product (`active: false`). The CLI adds
+`--active` to show one immediately; the MCP tool defaults `active` to false.
+
 Every write calls `ensure_authenticated` first. It uses the same expiry-aware
 and reactive reauth path as reads.
 

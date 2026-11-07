@@ -63,6 +63,7 @@ just cli auth logout
 
 just cli product list --booking-id 123 --raw
 just cli product add --booking-id 123 --name Lego --price 39,00 --category-id 12
+# New products are hidden by default; add --active to show one immediately.
 just cli product active --booking-id 123 --product-id 456
 just cli product inactive --booking-id 123 --product-id 456
 just cli product move --category-id 99 --product-id 456

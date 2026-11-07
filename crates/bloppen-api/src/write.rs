@@ -64,7 +64,7 @@ pub struct ProductDraft {
 }
 
 impl ProductDraft {
-    /// A new product with the site's defaults.
+    /// A new product with safe defaults: hidden until explicitly activated.
     pub fn new(name: impl Into<String>, price: impl Into<String>) -> Self {
         Self {
             product_id: None,
@@ -76,7 +76,7 @@ impl ProductDraft {
             top_category_id: None,
             sub_category_id: None,
             specification_id: None,
-            active: true,
+            active: false,
             big_item: false,
             image: None,
             image_2: None,
@@ -644,7 +644,6 @@ mod tests {
         let value = ProductDraft::new("Lego", "39,00")
             .with_category(12)
             .with_size(34)
-            .with_active(true)
             .to_json();
         assert_eq!(value["product_id"], json!(""));
         assert_eq!(value["temp_id"], json!(""));
@@ -654,7 +653,7 @@ mod tests {
         assert_eq!(value["boerneloppen_theme_specification_id"], json!("34"));
         assert_eq!(value["newImage"], json!("0"));
         assert_eq!(value["_delete"], json!("0"));
-        assert_eq!(value["active"], json!(true));
+        assert_eq!(value["active"], json!(false));
     }
 
     #[test]
